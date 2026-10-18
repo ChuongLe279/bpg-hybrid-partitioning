@@ -34,15 +34,19 @@ $$G^{(t)} = \begin{bmatrix} g_1^{(t)} & g_2^{(t)} & \dots & g_K^{(t)} \end{bmatr
 
 <img src="research/formula.png" width=100%>
 
-$$X^{(t+1)} = \mathcal{P}_{\mathcal{C}} \big( X^{(t)} \odot \exp(-\lambda_t G^{(t)}) \big)$$
+$$X^{(t+1)} = P_C \big( X^{(t)} \odot \exp(-\lambda_t G^{(t)}) \big)$$
 
 Quy trình tính toán gồm 2 bước:
 
-**Bước 1: Cập nhật ma trận theo hàm mũ (nhân Hadamard $\odot$)**
+**Bước 1: Cập nhật ma trận theo hàm mũ (nhân Hadamard $\odot$)**:
+
 $$Y = X^{(t)} \odot \exp(-\lambda_t G^{(t)})$$
 
-**Bước 2: Phép chiếu Bregman $\mathcal{P}_{\mathcal{C}}$ (chuẩn hóa từng dòng về tổng 100%)**
-$$[\mathcal{P}_{\mathcal{C}}(Y)]_{ij} = \frac{Y_{ij}}{\sum_{k=1}^K Y_{ik}}$$
+**Bước 2: Phép chiếu Bregman $P_C$ (chuẩn hóa từng dòng về tổng 100%)**:
+
+$$X_{ij}^{(t+1)} = \frac{Y_{ij}}{\sum_{k=1}^K Y_{ik}}$$
+
+
 
 ---
 
@@ -68,7 +72,7 @@ $$\exp(-G) \approx \begin{bmatrix} 0.135 & 2.718 \end{bmatrix}$$
 
 $$Y = X^{(t)} \odot \exp(-G) \approx \begin{bmatrix} 0.5 \times 0.135 & 0.5 \times 2.718 \end{bmatrix} = \begin{bmatrix} 0.0675 & 1.359 \end{bmatrix}$$
 
-4. **Phép chiếu $\mathcal{P}_{\mathcal{C}}$ chuẩn hóa về 100%**:
+4. **Phép chiếu $P_C$ chuẩn hóa về 100%**:
    - Tổng điểm: $0.0675 + 1.359 = 1.4265$
 
 $$X^{(t+1)} = \begin{bmatrix} \frac{0.0675}{1.4265} & \frac{1.359}{1.4265} \end{bmatrix} \approx \begin{bmatrix} 0.047 & 0.953 \end{bmatrix}$$
