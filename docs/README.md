@@ -38,7 +38,7 @@ Từ Transaction biến thành Ma trận BPG (Mục 7):
 Ma trận kề W: Chứa trọng số truy cập đồng thời giữa các thực thể dữ liệu
 Ma trận khởi tạo X: Trạng thái phân bổ ban đầu cho $k$ phân vùng
 
-File [src/create_partition_scheme.py](../src/create_partition_scheme.py) có nhiệm vụ tạo mock data
+File [src/create_partition_scheme.py](../src/create_partition_scheme.py) có nhiệm vụ tạo mock data\
 Sau đó ta triển khai first partitioning ([src/first_partitioning.py](../src/first_partitioning.py))
 
 ## Test:
