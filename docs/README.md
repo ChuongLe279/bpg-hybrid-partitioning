@@ -36,10 +36,15 @@ Quy trình dữ liệu giả lập sẽ đi qua các nấc:
   + Cạnh có trọng số $w > 0$: nối các tuple cùng xuất hiện trong một transaction (cộng dồn tần suất truy cập đồng thời)
 
 **D. Từ Transaction biến thành Ma trận BPG (Mục 7)**:
-- **Ma trận kề ái lực $W \in \mathbb{R}^{N \times N}$**: Đo tần suất truy cập đồng thời giữa các thực thể dữ liệu
-  $$W_{ij} = \sum_{T \in \mathcal{T}} \mathbb{I}(i \in T \text{ và } j \in T)$$
-- **Ma trận phân bổ xác suất $X \in \mathbb{R}^{N \times K}$**: Trạng thái phân bổ ban đầu cho $K$ phân vùng (máy chủ)
-  $$X = [x_{ij}]_{N \times K}, \quad \text{với } \sum_{j=1}^K x_{ij} = 1, \; \forall i \in \{1, \dots, N\}$$
+
+1. **Ma trận kề ái lực $W \in \mathbb{R}^{N \times N}$**: Đo tần suất truy cập đồng thời giữa các thực thể dữ liệu:
+
+$$W_{ij} = \sum_{T \in \mathcal{T}} \mathbb{I}(i \in T \text{ và } j \in T)$$
+
+2. **Ma trận phân bổ xác suất $X \in \mathbb{R}^{N \times K}$**: Trạng thái phân bổ ban đầu cho $K$ phân vùng (máy chủ):
+
+$$X = [x_{ij}]_{N \times K}, \quad \text{với } \sum_{j=1}^K x_{ij} = 1, \; \forall i \in \{1, \dots, N\}$$
+
 
 File [src/create_partition_scheme.py](../src/create_partition_scheme.py) có nhiệm vụ tạo mock data
 Sau đó ta triển khai first partitioning ([src/first_partitioning.py](../src/first_partitioning.py))
