@@ -1,9 +1,34 @@
+import os
+import sys
+import subprocess
+import importlib.util
+
+# tự động kiểm tra và cài đặt thư viện cần thiết có lưu cache
+cache_file = os.path.join(os.path.dirname(__file__), '__pycache__', '.deps_installed')
+
+if not os.path.exists(cache_file):
+    required = {
+        'prettytable': 'prettytable',
+        'networkx': 'networkx',
+        'numpy': 'numpy',
+        'scipy': 'scipy',
+        'faker': 'Faker'
+    }
+    missing = [pkg for mod, pkg in required.items() if importlib.util.find_spec(mod) is None]
+    if missing:
+        print(f"cài đặt thư viện còn thiếu: {', '.join(missing)}")
+        subprocess.check_call([sys.executable, '-m', 'pip', 'install', *missing])
+    os.makedirs(os.path.dirname(cache_file), exist_ok=True)
+    with open(cache_file, 'w') as f:
+        f.write('ok')
+
 from prettytable import PrettyTable
 from create_partition_scheme import CreatePartitionScheme
 from first_partitioning import FirstPartitioning
 from partition_scheme_bpg import PartitionScheme_BPG
 from bpg import BregmanProximalGradient
 from bpg_partition_scheme import BPG_PartitionScheme
+
 
 
 
