@@ -1,71 +1,88 @@
 # Thuật toán Bregman Proximal Gradient (BPG)
 
-Tài liệu gốc: [BPG.pdf](research/BPG.pdf)
+Tài liệu gốc: [BPG.pdf](research/BPG.pdf) - Mục 3.1
 
-### 1. Ý tưởng cốt lõi của BPG
-Ở bước trước, ta đã chuyển PartitionScheme thành ma trận ái lực W kích thước 5x5 (đo độ thân thiết giữa 5 khách hàng)
-Thay vì dùng thuật toán tham lam kiểu Algorithm 5, BPG giải bài toán tối ưu phân cụm Normalized Cut (NCut):
-- **Tử số**: Cắt ít cạnh có trọng số lớn nhất có thể (mục tiêu: giảm nghẽn mạng)
-- **Mẫu số**: Giữ tải giữa các máy chủ cân bằng nhau (mục tiêu: tránh dồn hết việc vào một máy)
+### 1. Mô hình toán học Normalized Cut (NCut)
+Bài toán phân bổ dữ liệu được phát biểu dưới dạng tối ưu phân cụm đồ thị:
+
+$$\min_{X \in \mathcal{C}} f(X) = \sum_{i=1}^K \frac{x_i^T W (\mathbf{1}_N - x_i)}{x_i^T W \mathbf{1}_N}$$
+
+Trong đó:
+- $W \in \mathbb{R}^{N \times N}$ là ma trận ái lực đo tần suất giao dịch đồng thời giữa các tuple
+- $x_i$ là vector cột thứ $i$ của ma trận $X$, biểu diễn mức độ thuộc về máy chủ thứ $i$
+- $\mathbf{1}_N$ là vector toàn số 1 độ dài $N$
+- Tử số $x_i^T W (\mathbf{1}_N - x_i)$ đo tổng trọng số các cạnh bị cắt (chi phí nghẽn mạng)
+- Mẫu số $x_i^T W \mathbf{1}_N$ đo khối lượng công việc (volume/workload) của máy chủ thứ $i$
+- Không gian ràng buộc xác suất $\mathcal{C}$:
+
+$$\mathcal{C} = \{ X \in \mathbb{R}^{N \times K} \mid x_{ij} \ge 0, \;\sum_{j=1}^K x_{ij} = 1 \}$$
 
 ---
 
-### 2. Ví dụ trực quan: Cơ chế dịch chuyển xác suất của BPG
+### 2. Công thức Gradient của hàm mục tiêu
+Đạo hàm riêng của hàm mục tiêu theo từng vector cột $x_i$:
+
+$$g_i = \nabla_{x_i} f(X) = \frac{(x_i^T W \mathbf{1}_N)(W \mathbf{1}_N - 2W x_i) - x_i^T W (\mathbf{1}_N - x_i) W \mathbf{1}_N}{(x_i^T W \mathbf{1}_N)^2}$$
+
+Ma trận Gradient tổng hợp tại bước lặp $t$:
+
+$$G^{(t)} = \begin{bmatrix} g_1^{(t)} & g_2^{(t)} & \dots & g_K^{(t)} \end{bmatrix}$$
+
+---
+
+### 3. Công thức lặp BPG (Công thức 6 trong bài báo)
 
 <img src="research/formula.png" width=100%>
 
-Công thức toán học trong bài báo (công thức 6):
-```text
-X^(t+1) = P_c( X^(t) * e^(-lambda * G) )
-```
+$$X^{(t+1)} = \mathcal{P}_{\mathcal{C}} \big( X^{(t)} \odot \exp(-\lambda_t G^{(t)}) \big)$$
 
-Trong đó:
-- **G** chính là ma trận đạo hàm chi phí df/dX
-- Dấu `*` (ký hiệu vòng tròn trong ảnh) là phép nhân từng phần tử
-- Khi lập trình trên máy tính, thuật toán tách làm 2 bước cho dễ tính:
-  1. Tính ruột bên trong ngoặc: `Y = X * e^(-lambda * G)` (tính điểm thưởng / phạt)
-  2. Phép chiếu **P_c**: Lấy Y chia cho tổng mỗi dòng để quy về 100% xác suất
+Quy trình tính toán gồm 2 bước:
 
-Hãy xem ví dụ cụ thể bằng số:
+**Bước 1: Cập nhật ma trận theo hàm mũ (nhân Hadamard $\odot$)**
+$$Y = X^{(t)} \odot \exp(-\lambda_t G^{(t)})$$
 
-Giả sử một khách hàng ban đầu đang được cân nhắc giữa **Máy A** và **Máy B** với tỉ lệ 50% - 50%:
-```text
-X = [0.5, 0.5]
-```
-
-**Bước 1: Tính độ dốc chi phí (Gradient G)**
-- Nếu đưa khách hàng vào **Máy A**: Làm tăng thêm nhiều giao dịch chéo mạng (cost = +2)
-- Nếu đưa khách hàng vào **Máy B**: Trùng với các bạn bè hay giao dịch chung (cost = -1)
-
-**Bước 2: Tính điểm thưởng phạt theo hàm số mũ e^(-cost)**
-- Máy A bị phạt tụt điểm: e^(-2) = 0.135 (nhỏ hơn 1 nên làm tụt điểm)
-- Máy B được thưởng tăng điểm: e^(+1) = 2.718 (lớn hơn 1 nên làm tăng điểm)
-
-**Bước 3: Nhân điểm vào xác suất ban đầu (Y = X * e^(-cost))**
-- Điểm tạm thời của Máy A: 0.5 * 0.135 = 0.0675
-- Điểm tạm thời của Máy B: 0.5 * 2.718 = 1.359
-
-**Bước 4: Quy về 100% (Phép chiếu chuẩn hóa hàng)**
-- Tổng điểm cả 2 máy: 0.0675 + 1.359 = 1.4265
-- Tỉ lệ mới của Máy A: 0.0675 / 1.4265 = 4.7%
-- Tỉ lệ mới của Máy B: 1.359 / 1.4265 = 95.3%
-
-```text
-X_mới = [0.047, 0.953]
-```
-
-=> **Ý nghĩa thực tế**:
-Ban đầu hệ thống còn phân vân 50% - 50%, nhưng chỉ sau một nhịp tính toán, thuật toán nhận thấy ném dữ liệu vào Máy B ít tốn kém hơn nhiều, nên tỉ lệ tự động dồn 95.3% về Máy B
-Cứ lặp như vậy vài vòng, tỉ lệ sẽ dồn hẳn thành 100% về Máy B
+**Bước 2: Phép chiếu Bregman $\mathcal{P}_{\mathcal{C}}$ (chuẩn hóa từng dòng về tổng 100%)**
+$$[\mathcal{P}_{\mathcal{C}}(Y)]_{ij} = \frac{Y_{ij}}{\sum_{k=1}^K Y_{ik}}$$
 
 ---
 
-### 3. So sánh bản chất tư duy: Algorithm 5 vs BPG
+### 4. Ví dụ số học trực quan: Dịch chuyển xác suất
+
+Xét một khách hàng đang được phân vân giữa **Máy A** và **Máy B** với tỉ lệ ban đầu 50% - 50%:
+
+$$X^{(t)} = \begin{bmatrix} 0.5 & 0.5 \end{bmatrix}$$
+
+1. **Đo độ dốc chi phí (Gradient $G$)**:
+   - Ném vào Máy A làm tăng giao dịch chéo mạng: $g_A = +2$
+   - Ném vào Máy B giúp giao dịch nội bộ tại chỗ: $g_B = -1$
+
+$$G = \begin{bmatrix} +2 & -1 \end{bmatrix}$$
+
+2. **Tính điểm thưởng phạt hàm mũ**:
+   - Máy A bị phạt: $e^{-(+2)} = e^{-2} \approx 0.135$
+   - Máy B được thưởng: $e^{-(-1)} = e^1 \approx 2.718$
+
+$$\exp(-G) \approx \begin{bmatrix} 0.135 & 2.718 \end{bmatrix}$$
+
+3. **Nhân điểm vào xác suất ban đầu (Bước $Y$)**:
+
+$$Y = X^{(t)} \odot \exp(-G) \approx \begin{bmatrix} 0.5 \times 0.135 & 0.5 \times 2.718 \end{bmatrix} = \begin{bmatrix} 0.0675 & 1.359 \end{bmatrix}$$
+
+4. **Phép chiếu $\mathcal{P}_{\mathcal{C}}$ chuẩn hóa về 100%**:
+   - Tổng điểm: $0.0675 + 1.359 = 1.4265$
+
+$$X^{(t+1)} = \begin{bmatrix} \frac{0.0675}{1.4265} & \frac{1.359}{1.4265} \end{bmatrix} \approx \begin{bmatrix} 0.047 & 0.953 \end{bmatrix}$$
+
+=> Sau 1 bước, xác suất của Máy B tăng vọt từ $50\%$ lên $95.3\%$, kéo dữ liệu về đúng máy chủ tối ưu
+
+---
+
+### 5. So sánh bản chất tư duy: Algorithm 5 vs BPG
 
 | Tiêu chí | Algorithm 5 (Cách cũ của Schreiner) | BPG (Cách mới đề xuất) |
 |---|---|---|
 | **Triết lý giải thuật** | Tham lam cục bộ (Greedy) | Tối ưu hóa toàn cục (Normalized Cut) |
-| **Cách nhìn dữ liệu** | Nhìn từng người một theo thứ tự tải nặng đến nhẹ | Nhìn toàn bộ ma trận ái lực W của toàn hệ thống |
+| **Cách nhìn dữ liệu** | Nhìn từng người một theo thứ tự tải nặng đến nhẹ | Nhìn toàn bộ ma trận ái lực $W$ của toàn hệ thống |
 | **Cách xử lý đôi bạn thân** | Thấy Khách 1 và Khách 2 đều bận rộn nên tách đôi ra 2 máy cho đều tải | Nhận ra Khách 1 và Khách 2 liên kết 5.0 cực mạnh nên bắt buộc gom chung vào Site 0 |
 | **Xử lý ràng buộc** | Gom cụm thô (coarsening) rồi gán cứng từng hạt giống (seed) | Dùng không gian xác suất mềm liên tục rồi làm tròn rời rạc (Soft to Hard) |
 | **Chi phí nghẽn mạng** | Rất cao (**6.0**) do xé nát các giao dịch lớn | Rất thấp (**1.0**) do bảo toàn trọn vẹn các cụm giao dịch nội bộ |
@@ -73,7 +90,7 @@ Cứ lặp như vậy vài vòng, tỉ lệ sẽ dồn hẳn thành 100% về M�
 
 ---
 
-### 4. Kết quả thực nghiệm đối đầu trên Mock Data
+### 6. Kết quả thực nghiệm đối đầu trên Mock Data
 
 Khi chạy lệnh `just test`, kết quả so sánh số liệu thực tế hiện ra rõ rệt:
 

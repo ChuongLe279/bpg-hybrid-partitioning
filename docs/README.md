@@ -1,46 +1,50 @@
 ## Chuẩn bị
 
-1. Vì sao chưa nên đụng vào TPC-C lúc này?
+### 1. Vì sao chưa nên đụng vào TPC-C lúc này?
 
-TPC-C quá phức tạp để debug: TPC-C có tới 9 bảng liên kết chặt chẽ (Warehouse, District, Customer, Orders...) và 5 loại transaction phức tạp. Nếu thuật toán phân mảnh chạy ra kết quả lạ, ta sẽ không biết lỗi do công thức BPG, do cách tạo đồ thị nhiệt, hay do logic nghiệp vụ rắc rối của TPC-C\
-Khó kiểm soát kết quả mong đợi: Với TPC-C, số lượng dữ liệu và giao dịch rất lớn, rất khó để ta nhẩm bằng mắt xem thuật toán chia như vậy đã tối ưu hay chưa\
-Tốn tài nguyên và thời gian setup: Cài đặt benchmark chuẩn đòi hỏi nhiều cấu hình môi trường, làm chậm tiến độ hoàn thiện khung thuật toán chính
+- **TPC-C quá phức tạp để debug**: TPC-C có tới 9 bảng liên kết chặt chẽ (Warehouse, District, Customer, Orders...) và 5 loại transaction phức tạp. Nếu thuật toán phân mảnh chạy ra kết quả lạ, ta sẽ không biết lỗi do công thức BPG, do cách tạo đồ thị nhiệt, hay do logic nghiệp vụ rắc rối của TPC-C
+- **Khó kiểm soát kết quả mong đợi**: Với TPC-C, số lượng dữ liệu và giao dịch rất lớn, rất khó để ta nhẩm bằng mắt xem thuật toán chia như vậy đã tối ưu hay chưa
+- **Tốn tài nguyên và thời gian setup**: Cài đặt benchmark chuẩn đòi hỏi nhiều cấu hình môi trường, làm chậm tiến độ hoàn thiện khung thuật toán chính
 
-2. Lợi thế khi dùng faker tạo Mock Data
+### 2. Lợi thế khi dùng Faker tạo Mock Data
 
-Biết trước kết quả mong đợi (Ground Truth): Ta hoàn toàn có thể "gài bẫy" dữ liệu để kiểm thử thuật toán. Ví dụ:\
-Nhóm transaction 1: Thường xuyên truy cập chung các khách hàng từ ID 1 đến 50 (cùng cụm)\
-Nhóm transaction 2: Thường xuyên truy cập chung các khách hàng từ ID 51 đến 100 (cùng cụm)\
-Nếu BPG chia đúng, nó bắt buộc phải gom nhóm 1 vào Site A và nhóm 2 vào Site B. Điều này giúp ta kiểm chứng ngay công thức BPG chạy đúng hay sai\
-Dễ dàng kiểm thử phân mảnh dọc (Vertical Partitioning): Với bảng đơn giản gồm (id, name, email, phone, address, balance):\
-Một số transaction chỉ xem (id, name, email)\
-Một số transaction chỉ tính toán (id, balance)\
-Đây chính là nguyên liệu hoàn hảo để tạo các đỉnh projection khác nhau của cùng 1 tuple nối với nhau bằng cạnh trọng số 0 trên Heat Graph\
+- **Biết trước kết quả mong đợi (Ground Truth)**: Ta hoàn toàn có thể "gài bẫy" dữ liệu để kiểm thử thuật toán:
+  + Nhóm transaction 1: Thường xuyên truy cập chung các khách hàng từ ID 1 đến 50 (cùng cụm)
+  + Nhóm transaction 2: Thường xuyên truy cập chung các khách hàng từ ID 51 đến 100 (cùng cụm)
+  + Nếu BPG chia đúng, nó bắt buộc phải gom nhóm 1 vào Site A và nhóm 2 vào Site B. Điều này giúp ta kiểm chứng ngay công thức BPG chạy đúng hay sai
+- **Dễ dàng kiểm thử phân mảnh dọc (Vertical Partitioning)**: Với bảng đơn giản gồm (id, name, email, phone, address, balance):
+  + Một số transaction chỉ xem (id, name, email)
+  + Một số transaction chỉ tính toán (id, balance)
+  + Đây chính là nguyên liệu hoàn hảo để tạo các đỉnh projection khác nhau của cùng 1 tuple nối với nhau bằng cạnh trọng số 0 trên Heat Graph
 
-3. Bản chất của 2 thứ chúng ta cần làm
+### 3. Bản chất của 2 thứ chúng ta cần làm
 
-Quy trình dữ liệu giả lập sẽ đi qua 3 nấc:
+Quy trình dữ liệu giả lập sẽ đi qua các nấc:
 
-Mock Database:
+**A. Mock Database**:
+- Dùng Faker sinh ra một bảng đơn giản (ví dụ tầm 50 đến 100 dòng)
+- Lưu trữ dưới dạng bảng hoặc dictionary dữ liệu thông thường
 
-Dùng faker sinh ra một bảng đơn giản (ví dụ tầm 50 đến 100 dòng)\
-Lưu trữ dưới dạng bảng hoặc dictionary dữ liệu thông thường\
-Mock Transactions (Workload Generator):\
+**B. Mock Transactions (Workload Generator)**:
+- Một transaction bản chất là một danh sách các thao tác: "Đọc dòng nào, trên những cột nào"
+- Ví dụ: `Transaction_1 = [(tuple_1, ['name', 'email']), (tuple_2, ['name', 'email'])]`
 
-Một transaction bản chất là một danh sách các thao tác: "Đọc dòng nào, trên những cột nào"\
-Ví dụ: Transaction_1 = [(tuple_1, ['name', 'email']), (tuple_2, ['name', 'email'])]\
-Từ Transaction biến thành Heat Graph (Mục 6):\
+**C. Từ Transaction biến thành Heat Graph (Mục 6)**:
+- Đồ thị nhiệt $G = (V, E)$:
+  + Mỗi đỉnh $v \in V$ đại diện cho một tuple projection với trọng số nhiệt $\omega(v)$ là tần suất truy cập
+  + Cạnh có trọng số $w = 0$: nối các projection của cùng một tuple (để bảo toàn dữ liệu một người)
+  + Cạnh có trọng số $w > 0$: nối các tuple cùng xuất hiện trong một transaction (cộng dồn tần suất truy cập đồng thời)
 
-Đếm tần suất: tuple nào được gọi nhiều lần thì tăng độ nóng\
-Cặp tuple nào cùng xuất hiện trong một transaction thì nối cạnh có trọng số cộng dồn\
-Hai projection của cùng 1 tuple thì nối cạnh trọng số 0\
-Từ Transaction biến thành Ma trận BPG (Mục 7):
+**D. Từ Transaction biến thành Ma trận BPG (Mục 7)**:
+- **Ma trận kề ái lực $W \in \mathbb{R}^{N \times N}$**: Đo tần suất truy cập đồng thời giữa các thực thể dữ liệu
+  $$W_{ij} = \sum_{T \in \mathcal{T}} \mathbb{I}(i \in T \text{ và } j \in T)$$
+- **Ma trận phân bổ xác suất $X \in \mathbb{R}^{N \times K}$**: Trạng thái phân bổ ban đầu cho $K$ phân vùng (máy chủ)
+  $$X = [x_{ij}]_{N \times K}, \quad \text{với } \sum_{j=1}^K x_{ij} = 1, \; \forall i \in \{1, \dots, N\}$$
 
-Ma trận kề W: Chứa trọng số truy cập đồng thời giữa các thực thể dữ liệu\
-Ma trận khởi tạo X: Trạng thái phân bổ ban đầu cho $k$ phân vùng
-
-File [src/create_partition_scheme.py](../src/create_partition_scheme.py) có nhiệm vụ tạo mock data\
+File [src/create_partition_scheme.py](../src/create_partition_scheme.py) có nhiệm vụ tạo mock data
 Sau đó ta triển khai first partitioning ([src/first_partitioning.py](../src/first_partitioning.py))
+
+
 
 ## Test:
 
@@ -157,7 +161,7 @@ Total distributed transaction cost (Cut Weight): 6.0 # --> Tổng chi phí giao 
 +-------------------------+-----+-----+-----+-----+-----+
 ```
 
-=> Đọc [partition_scheme_bpg.md](partition_scheme_bpg.md) để hiểu ma trận W
+=> Đọc [partition_scheme_bpg.md](partition_scheme_bpg.md) để hiểu ma trận ái lực $W$
 
 ```sh
 === BPG SOFT ASSIGNMENT MATRIX X ===
