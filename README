@@ -1,5 +1,13 @@
 BPG-Based Initial Partitioning for Hybrid Data Partitioning in NewSQL Databases
+Tạm dịch: Thay thế thuật toán khởi tạo bằng BPG cho phương pháp phân mảnh dữ liệu hybrid trong hệ cơ sở dữ liệu NewSQL
 
-[1] P. Niu, B. Ren, H. Wu, and X. Yao, "Modeling and optimization for massive data allocation in database," arXiv:2605.31002, Jun. 2026. [Online]. Available: https://arxiv.org/abs/2605.31002
 
-[2] G. A. Schreiner, R. de Santiago, D. Duarte, and R. dos Santos Mello, "An autonomous hybrid data partitioning approach for NewSQL databases," Journal of the Brazilian Computer Society, vol. 32, no. 1, Art. no. 1, 2026, doi: 10.5753/jbcs.2026.5684.
+Dự án hiện thực hóa thuật toán Bregman Proximal Gradient (BPG) cho bài toán phân bổ dữ liệu khởi tạo trong các phương án phân mảnh hybrid cho hệ cơ sở dữ liệu phân tán NewSQL
+
+Mã nguồn này thay thế thuật toán phân mảnh khởi đầu tham lam (Algorithm 5 của Schreiner và cộng sự) bằng mô hình tối ưu Normalized Cut liên tục được giải bằng BPG (Niu và cộng sự) nhằm giảm thiểu chi phí nghẽn mạng do giao dịch phân tán và cân bằng tải công việc giữa các máy chủ
+
+
+
+[1] P. Niu, B. Ren, H. Wu, and X. Yao, "Modeling and optimization for massive data allocation in database," arXiv:2605.31002, Jun 2026
+
+[2] G. A. Schreiner, R. de Santiago, D. Duarte, and R. dos Santos Mello, "An autonomous hybrid data partitioning approach for NewSQL databases," Journal of the Brazilian Computer Society, vol. 32, no. 1, Art. no. 1, 2026, doi: 10.5753/jbcs.2026.5684
