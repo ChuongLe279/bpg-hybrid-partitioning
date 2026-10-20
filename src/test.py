@@ -85,7 +85,7 @@ for p, nodes in partition_scheme.partitions.items():
 
 # chạy thuật toán khởi tạo first partitioning (algorithm 5)
 fp = FirstPartitioning(graph, partition_scheme, site_num=2)
-fp.run()
+partition_scheme = fp.run()
 
 print('\n=== PARTITION SCHEME (AFTER FIRST PARTITIONING - ALGORITHM 5) ===')
 print(f"Total partitions: {len(partition_scheme.partitions)}")

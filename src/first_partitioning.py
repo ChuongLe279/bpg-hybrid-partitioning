@@ -1,3 +1,4 @@
+from __future__ import annotations
 import networkx as nx
 
 
@@ -92,4 +93,4 @@ class FirstPartitioning(): # Algorithm 5
                     self.heat_graph.nodes[orig_node]['partition'] = p
 
         self.partition_scheme.partitions = final_partitions
-        return self.heat_graph
+        return self.partition_scheme
