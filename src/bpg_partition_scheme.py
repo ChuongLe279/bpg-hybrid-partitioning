@@ -1,3 +1,4 @@
+from __future__ import annotations
 import networkx as nx
 import numpy as np
 
@@ -9,7 +10,7 @@ class BPG_PartitionScheme():
         self.coarse_to_nodes = coarse_to_nodes
 
     # chuyển nhãn phân cụm của bpg ngược lại thành PartitionScheme
-    def run(self):
+    def run(self) -> PartitionScheme:
         from main import PartitionScheme
         partitions: dict[int, set[int]] = {}
         for idx, cluster_id in enumerate(self.labels):

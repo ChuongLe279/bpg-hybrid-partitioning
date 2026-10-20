@@ -20,7 +20,7 @@ class PartitioningUnbalancedGraph(): # Algorithm 3
         self.partition_scheme = partition_scheme
         self.site_num = site_num
 
-    def run(self):
+    def run(self) -> nx.Graph:
         return self.heat_graph
 
 class PartitioningMinimumCutGraph(): # Algorithm 4
@@ -30,7 +30,7 @@ class PartitioningMinimumCutGraph(): # Algorithm 4
         self.site_num = site_num
         self.depth_search = depth_search
 
-    def run(self):
+    def run(self) -> nx.Graph:
         return self.heat_graph
 
 
@@ -49,6 +49,6 @@ class Partitioning(): # Algorithm 2
         self.workload_factor = workload_factor
         self.distributed_percentage = distributed_percentage
 
-    def run(self):
+    def run(self) -> nx.Graph:
         return self.heat_graph
 

@@ -1,3 +1,4 @@
+from __future__ import annotations
 import random
 from faker import Faker
 import networkx as nx
@@ -160,7 +161,7 @@ class CreatePartitionScheme():
         self.heat_graph = heat_graph
         return heat_graph
 
-    def run(self):
+    def run(self) -> PartitionScheme:
         from main import PartitionScheme
         graph = self.build_heat_graph()
         initial_partitions = {0: set(graph.nodes())}

@@ -39,7 +39,7 @@ class FirstPartitioning(): # Algorithm 5
 
         return coarse_g, coarse_to_nodes, node_to_coarse
 
-    def run(self):
+    def run(self) -> PartitionScheme:
         coarse_g, coarse_to_nodes, _ = self._coarsening_graph()
 
         partitions: dict[int, set[int]] = {p: set() for p in range(self.site_num)}
