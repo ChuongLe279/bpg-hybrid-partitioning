@@ -3,9 +3,9 @@ import networkx as nx
 
 
 class FirstPartitioning(): # Algorithm 5
-    def __init__(self, heat_graph: nx.Graph, partition_scheme: PartitionScheme, site_num: int):
-        self.heat_graph = heat_graph
+    def __init__(self, partition_scheme: PartitionScheme, site_num: int):
         self.partition_scheme = partition_scheme
+        self.heat_graph = partition_scheme.heat_graph
         self.site_num = site_num
 
     # coarsening graph: Gom cụm các đỉnh projection nối nhau bằng cạnh trọng số 0 (thuộc cùng một tuple) thành một đỉnh đại diện với tổng trọng số nhiệt
