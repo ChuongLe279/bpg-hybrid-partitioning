@@ -12,7 +12,7 @@ Các class đã được gom nhóm khoa học theo chức năng thay vì để m
 - [src/workload.py](../src/workload.py): Chứa dữ liệu mẫu và bộ sinh Heat Graph (`CreatePartitionScheme`)
 - [src/baseline.py](../src/baseline.py): Chứa thuật toán khởi tạo tham chiếu Algorithm 5 (`FirstPartitioning`)
 - [src/bpg.py](../src/bpg.py): Chứa trọn bộ pipeline thuật toán BPG (`PartitionScheme_BPG`, `BregmanProximalGradient`, `BPG_PartitionScheme`, `bpg_partition`)
-- [src/dynamic.py](../src/dynamic.py): Chứa cụm thuật toán điều phối động của Chương (Algorithm 2 `Partitioning`, Algorithm 3 `PartitioningUnbalancedGraph`, Algorithm 4 `PartitioningMinimumCutGraph`)
+- [src/dynamic.py](../src/dynamic.py): Chứa cụm thuật toán điều phối động (Algorithm 2 `Partitioning`, Algorithm 3 `PartitioningUnbalancedGraph`, Algorithm 4 `PartitioningMinimumCutGraph`)
 - [src/main.py](../src/main.py): Đóng gói import và export để gọi dùng thuận tiện
 - [src/test.py](../src/test.py): Kịch bản chạy thử nghiệm kiểm tra kết quả giữa Algorithm 5 và BPG
 
