@@ -23,11 +23,11 @@ if not os.path.exists(cache_file):
         f.write('ok')
 
 from prettytable import PrettyTable
-from create_partition_scheme import CreatePartitionScheme
-from first_partitioning import FirstPartitioning
-from partition_scheme_bpg import PartitionScheme_BPG
-from bpg import BregmanProximalGradient
-from bpg_partition_scheme import BPG_PartitionScheme
+from core import PartitionScheme
+from workload import CreatePartitionScheme
+from baseline import FirstPartitioning
+from bpg import PartitionScheme_BPG, BregmanProximalGradient, BPG_PartitionScheme, bpg_partition
+from dynamic import Partitioning
 
 
 
@@ -209,4 +209,18 @@ comp_table.add_row(['Overhead Reduction', 'Baseline', f'-{improvement:.1f}%'])
 
 print('\n=== COMPARISON: ALGORITHM 5 VS BPG ===')
 print(comp_table)
+
+# kiểm thử thuật toán điều phối động (algorithm 2)
+print('\n=== DYNAMIC PARTITIONING (ALGORITHM 2) ===')
+try:
+    initial_scheme = creator.run()
+    dyn_partitioning = Partitioning(initial_scheme, site_num=2, workload_factor=0.2, distributed_percentage=0.02, use_bpg=True)
+    dyn_result = dyn_partitioning.run()
+    print(f"Total partitions: {len(dyn_result.partitions)}")
+    for p, nodes in sorted(dyn_result.partitions.items()):
+        load = sum(graph.nodes[n]['weight'] for n in nodes)
+        print(f"Site {p}: nodes {sorted(list(nodes))}, workload {load}")
+except KeyError as e:
+    print(f"chờ cập nhật thuật toán từ Chương: KeyError {e} trong migrateTuple")
+
 

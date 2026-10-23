@@ -2,6 +2,7 @@ from __future__ import annotations
 import random
 from faker import Faker
 import networkx as nx
+from core import PartitionScheme
 
 
 class CreatePartitionScheme():
@@ -81,6 +82,7 @@ class CreatePartitionScheme():
             })
 
         return self.transactions
+
     """
     Số đỉnh trên đồ thị: Quyết định bởi số tuple và số loại cột được đọc (phân mảnh dọc)
     Số Node / Site phân tán: Là số máy chủ mà ta muốn chia
@@ -162,7 +164,6 @@ class CreatePartitionScheme():
         return heat_graph
 
     def run(self) -> PartitionScheme:
-        from main import PartitionScheme
         graph = self.build_heat_graph()
         initial_partitions = {0: set(graph.nodes())}
         return PartitionScheme(graph, initial_partitions)

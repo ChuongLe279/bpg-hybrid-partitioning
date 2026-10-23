@@ -1,9 +1,79 @@
+from __future__ import annotations
+import networkx as nx
 import numpy as np
 from scipy.sparse import csr_array
+from core import PartitionScheme
 
 
-class BregmanProximalGradient():
-    def __init__(self, W: csr_array, partitions_num: int = 2, step_size: float = 1.0, iterations_num: int = 50, seed: int = 42):
+class PartitionScheme_BPG():
+    def __init__(self, partition_scheme: PartitionScheme, use_coarsening: bool = True):
+        self.partition_scheme = partition_scheme
+        self.heat_graph = partition_scheme.heat_graph
+        self.use_coarsening = use_coarsening
+        self.node_to_idx: dict[int, int] = {}
+        self.idx_to_node: dict[int, int] = {}
+        self.coarse_to_nodes: dict[int, list[int]] = {}
+        self.W: csr_array | None = None
+
+    # chuyển đồ thị nhiệt thành ma trận kề thưa w
+    def run(self) -> csr_array:
+        if self.use_coarsening:
+            # gom các mảnh thuộc tính của cùng một tuple lại với nhau
+            zero_graph = nx.Graph()
+            zero_graph.add_nodes_from(self.heat_graph.nodes(data=True))
+            for u, v, d in self.heat_graph.edges(data=True):
+                if float(d.get('weight', 0.0)) == 0.0:
+                    zero_graph.add_edge(u, v)
+
+            coarse_g = nx.Graph()
+            node_to_coarse: dict[int, int] = {}
+            for c_idx, comp in enumerate(nx.connected_components(zero_graph)):
+                members = list(comp)
+                self.coarse_to_nodes[c_idx] = members
+                coarse_g.add_node(c_idx)
+                for n in members:
+                    node_to_coarse[n] = c_idx
+
+            # cộng dồn trọng số giao dịch giữa các tuple sau khi gộp
+            for u, v, d in self.heat_graph.edges(data=True):
+                w = float(d.get('weight', 0.0))
+                if w > 0.0:
+                    cu, cv = node_to_coarse[u], node_to_coarse[v]
+                    if cu != cv:
+                        cur_w = float(coarse_g.get_edge_data(cu, cv, {}).get('weight', 0.0))
+                        coarse_g.add_edge(cu, cv, weight=cur_w + w)
+
+            nodes = sorted(list(coarse_g.nodes()))
+            self.node_to_idx = {n: i for i, n in enumerate(nodes)}
+            self.idx_to_node = {i: n for i, n in enumerate(nodes)}
+            n_nodes = len(nodes)
+            w_mat = np.zeros((n_nodes, n_nodes), dtype=np.float64)
+            for u, v, d in coarse_g.edges(data=True):
+                i, j = self.node_to_idx[u], self.node_to_idx[v]
+                w_mat[i, j] = d.get('weight', 1.0)
+                w_mat[j, i] = d.get('weight', 1.0)
+
+            self.W = csr_array(w_mat)
+            return self.W
+        else:
+            # chuyển đổi trực tiếp không qua bước gộp tuple
+            nodes = sorted(list(self.heat_graph.nodes()))
+            self.node_to_idx = {n: i for i, n in enumerate(nodes)}
+            self.idx_to_node = {i: n for i, n in enumerate(nodes)}
+            n_nodes = len(nodes)
+            w_mat = np.zeros((n_nodes, n_nodes), dtype=np.float64)
+            for u, v, d in self.heat_graph.edges(data=True):
+                i, j = self.node_to_idx[u], self.node_to_idx[v]
+                w = float(d.get('weight', 0.0))
+                w_mat[i, j] = w
+                w_mat[j, i] = w
+
+            self.W = csr_array(w_mat)
+            return self.W
+
+
+class BregmanProximalGradient(): # BPG
+    def __init__(self, W: csr_array, partitions_num: int, step_size: float = 1.0, iterations_num: int = 50, seed: int = 42):
         self.W = W
         self.partitions_num = partitions_num
         self.step_size = step_size
@@ -12,42 +82,60 @@ class BregmanProximalGradient():
         self.X: np.ndarray | None = None
         self.labels: np.ndarray | None = None
 
-    # chạy thuật toán bpg (algorithm 1) giải bài toán normalized cut
     def run(self) -> np.ndarray:
-        w_dense = self.W.toarray() if hasattr(self.W, 'toarray') else np.array(self.W)
-        n = w_dense.shape[0]
-        k = self.partitions_num
-        w_1n = w_dense.sum(axis=1)
+        rng = np.random.default_rng(self.seed)
+        N = self.W.shape[0] # type: ignore
+        K = self.partitions_num
+        X = (1 / K) * np.ones((N, K)) + 0.1 * rng.random((N,K))
 
-        # bước 1: khởi tạo ma trận xác suất mềm x ban đầu với chút nhiễu ngẫu nhiên
-        np.random.seed(self.seed)
-        j = np.ones((n, k))
-        r = np.random.uniform(0.0, 1.0, (n, k))
-        x = (1.0 / k) * j + 0.1 * r
+        # Chuẩn hóa X theo dòng
+        X = X / X.sum(axis=1, keepdims=True)
 
-        # bước 2: chuẩn hóa xác suất mỗi dòng về tổng bằng 1
-        eps = 1e-7
-        x = x / (x.sum(axis=1, keepdims=True) + eps)
+        for t in range(self.iterations_num - 1):
+            G = np.empty_like(X)
 
-        # bước 3: lặp cập nhật gradient bregman
-        for t in range(self.iterations_num):
-            g = np.zeros((n, k), dtype=np.float64)
-            for i in range(k):
-                xi = x[:, i]
-                w_xi = w_dense.dot(xi)
-                vol = float(xi.dot(w_1n))
-                cut = float(xi.dot(w_1n - w_xi))
-                num = vol * (w_1n - 2.0 * w_xi) - cut * w_1n
-                den = (vol + eps) ** 2
-                g[:, i] = num / den
+            for i in range(K):
+                # Công thức đạo hàm
+                A = (X[:, i] @ (self.W @ np.ones(N))) * (self.W @ np.ones(N) - 2 * (self.W @ X[:, i]))
+                B = (X[:, i] @ (self.W @ (np.ones(N) - X[:, i]))) * (self.W @ np.ones(N))
+                C = (X[:, i] @ (self.W @ np.ones(N))) ** 2
+                g = (A - B) / C
 
-            # bước 7: cập nhật ma trận theo hàm mũ của gradient (thưởng tăng phạt giảm)
-            y = x * np.exp(-self.step_size * g)
+                G[:, i] = g
 
-            # bước 8: chuẩn hóa lại từng dòng về 100% bằng phép chiếu bregman
-            x = y / (y.sum(axis=1, keepdims=True) + eps)
+            Y = X * np.exp(-self.step_size * G)
+            X = Y / Y.sum(axis = 1, keepdims = True)
 
-        self.X = x
-        # bước 10: làm tròn rời rạc, chọn máy chủ có xác suất cao nhất cho mỗi tuple
-        self.labels = np.argmax(x, axis=1)
+        self.X = X
+        self.labels = np.argmax(X, axis=1)
         return self.labels
+
+
+class BPG_PartitionScheme():
+    def __init__(self, heat_graph: nx.Graph, labels: np.ndarray, coarse_to_nodes: dict[int, list[int]] | None = None):
+        self.heat_graph = heat_graph
+        self.labels = labels
+        self.coarse_to_nodes = coarse_to_nodes
+
+    # chuyển nhãn phân cụm của bpg ngược lại thành PartitionScheme
+    def run(self) -> PartitionScheme:
+        partitions: dict[int, set[int]] = {}
+        for idx, cluster_id in enumerate(self.labels):
+            p = int(cluster_id)
+            if p not in partitions:
+                partitions[p] = set()
+            if self.coarse_to_nodes:
+                orig_nodes = self.coarse_to_nodes[idx]
+                partitions[p].update(orig_nodes)
+            else:
+                partitions[p].add(idx + 1)
+        return PartitionScheme(self.heat_graph, partitions)
+
+
+def bpg_partition(partition_scheme: PartitionScheme, site_num: int = 2, step_size: float = 1.0, iterations_num: int = 50, seed: int = 42) -> PartitionScheme:
+    bpg_prep = PartitionScheme_BPG(partition_scheme, use_coarsening=True)
+    W = bpg_prep.run()
+    solver = BregmanProximalGradient(W=W, partitions_num=site_num, step_size=step_size, iterations_num=iterations_num, seed=seed)
+    labels = solver.run()
+    bpg_mapper = BPG_PartitionScheme(partition_scheme.heat_graph, labels, coarse_to_nodes=bpg_prep.coarse_to_nodes)
+    return bpg_mapper.run()
