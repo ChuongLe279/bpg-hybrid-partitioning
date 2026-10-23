@@ -91,7 +91,7 @@ class BregmanProximalGradient(): # BPG
         # Chuẩn hóa X theo dòng
         X = X / X.sum(axis=1, keepdims=True)
 
-        for t in range(self.iterations_num - 1):
+        for t in range(self.iterations_num):
             G = np.empty_like(X)
 
             for i in range(K):
@@ -99,10 +99,19 @@ class BregmanProximalGradient(): # BPG
                 A = (X[:, i] @ (self.W @ np.ones(N))) * (self.W @ np.ones(N) - 2 * (self.W @ X[:, i]))
                 B = (X[:, i] @ (self.W @ (np.ones(N) - X[:, i]))) * (self.W @ np.ones(N))
                 C = (X[:, i] @ (self.W @ np.ones(N))) ** 2
+                """
+                Chưa xét trường hợp C bằng 0 nữa.
+                Có thể cộng một số siêu nhỏ như 1e-10.
+                Nhưng mà sợ sai công thức đạo hàm.
+                """
                 g = (A - B) / C
 
                 G[:, i] = g
 
+            """
+            Sợ hàm mũ cao quá gây ra inf.
+            Nhưng t ko biết chỉnh công thức gốc như nào.
+            """
             Y = X * np.exp(-self.step_size * G)
             X = Y / Y.sum(axis = 1, keepdims = True)
 
