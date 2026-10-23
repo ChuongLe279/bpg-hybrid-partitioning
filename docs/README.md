@@ -1,3 +1,75 @@
+# Kiến trúc hệ thống và phân bố thuật toán
+
+Tài liệu này tổng hợp cấu trúc thư mục mã nguồn cùng bảng ánh xạ chi tiết 8 thuật toán từ hai bài báo nghiên cứu
+
+---
+
+### 1. Cấu trúc project
+
+Các class đã được gom nhóm khoa học theo chức năng thay vì để mỗi class một file rời rạc hay dồn 800 dòng vào một chỗ:
+
+- [src/core.py](../src/core.py): Chứa cấu trúc dữ liệu dùng chung `PartitionScheme`
+- [src/workload.py](../src/workload.py): Chứa dữ liệu mẫu và bộ sinh Heat Graph (`CreatePartitionScheme`)
+- [src/baseline.py](../src/baseline.py): Chứa thuật toán khởi tạo tham chiếu Algorithm 5 (`FirstPartitioning`)
+- [src/bpg.py](../src/bpg.py): Chứa trọn bộ pipeline thuật toán BPG (`PartitionScheme_BPG`, `BregmanProximalGradient`, `BPG_PartitionScheme`, `bpg_partition`)
+- [src/dynamic.py](../src/dynamic.py): Chứa cụm thuật toán điều phối động của Chương (Algorithm 2 `Partitioning`, Algorithm 3 `PartitioningUnbalancedGraph`, Algorithm 4 `PartitioningMinimumCutGraph`)
+- [src/main.py](../src/main.py): Đóng gói import và export để gọi dùng thuận tiện
+- [src/test.py](../src/test.py): Kịch bản chạy thử nghiệm kiểm tra kết quả giữa Algorithm 5 và BPG
+
+---
+
+### 2. Danh mục đầy đủ 8 thuật toán của cả hai bài báo
+
+| STT | Tên thuật toán                                 | Vị trí cài đặt                                                      | Thuộc bài báo     | Vai trò và nhiệm vụ                                                         |
+| --- | ---------------------------------------------- | ------------------------------------------------------------------- | ----------------- | --------------------------------------------------------------------------- |
+| 1   | Khởi tạo đồ thị nhiệt Heat Graph               | [src/workload.py](../src/workload.py) (`CreatePartitionScheme`)     | Autonomous NewSQL | Biến workload giao dịch thành đồ thị phân mảnh hỗn hợp                      |
+| 2   | Thuật toán khởi tạo cơ sở Algorithm 5          | [src/baseline.py](../src/baseline.py) (`FirstPartitioning`)         | Autonomous NewSQL | Phân mảnh ban đầu theo phương pháp tham lam (baseline để đối chiếu)         |
+| 3   | Chuyển đổi đồ thị sang ma trận ái lực $W$      | [src/bpg.py](../src/bpg.py) (`PartitionScheme_BPG`)                 | BPG NCut          | Coarsening các projection của cùng tuple thành ma trận kề $W$               |
+| 4   | Bộ giải Bregman Proximal Gradient              | [src/bpg.py](../src/bpg.py) (`BregmanProximalGradient`)             | BPG NCut          | Giải bài toán tối ưu Normalized Cut bằng cập nhật hàm mũ                    |
+| 5   | Rời rạc hóa ma trận $X$ về PartitionScheme     | [src/bpg.py](../src/bpg.py) (`BPG_PartitionScheme`)                 | BPG NCut          | Chuyển ma trận xác suất mềm $X$ thành gán nhãn cứng cho từng máy chủ        |
+| 6   | Điều phối phân mảnh thích ứng động Algorithm 2 | [src/dynamic.py](../src/dynamic.py) (`Partitioning`)                | Autonomous NewSQL | Giám sát độ lệch tải và chi phí giao dịch phân tán trong lúc chạy           |
+| 7   | Tái cân bằng tải lệch Algorithm 3              | [src/dynamic.py](../src/dynamic.py) (`PartitioningUnbalancedGraph`) | Autonomous NewSQL | Tìm tuple đại diện và di chuyển cụm 2 bước (2-hops) để giảm tải             |
+| 8   | Tối ưu cắt cạnh và bản sao Algorithm 4         | [src/dynamic.py](../src/dynamic.py) (`PartitioningMinimumCutGraph`) | Autonomous NewSQL | Triệt tiêu cạnh cắt nóng nhất bằng di chuyển hoặc tạo bản sao (Replication) |
+
+---
+
+### 3. Luồng dữ liệu xuyên suốt hệ thống
+
+```
+Faker Mock DB -> Mock Transactions
+                      |
+                      v
+      [src/workload.py] CreatePartitionScheme
+              (Sinh đồ thị Heat Graph)
+                      |
+                      v
+        +-------------+-------------+
+        |                           |
+        v                           v
+[src/baseline.py]            [src/bpg.py]
+FirstPartitioning (Algo 5)    PartitionScheme_BPG (Tạo W)
+        |                           |
+        |                           v
+        |                    BregmanProximalGradient (Giải X)
+        |                           |
+        |                           v
+        |                    BPG_PartitionScheme (Rời rạc hóa)
+        |                           |
+        +-------------+-------------+
+                      |
+                      v
+              PartitionScheme
+                      |
+                      v
+      [src/dynamic.py] Partitioning (Algo 2)
+        |
+        +---> Lệch tải quá mức: Gọi Algo 3 (PartitioningUnbalancedGraph)
+        |
+        +---> Vết cắt quá lớn: Gọi Algo 4 (PartitioningMinimumCutGraph)
+```
+
+---
+
 ## Chuẩn bị
 
 ### 1. Vì sao chưa nên đụng vào TPC-C lúc này?
@@ -46,8 +118,6 @@ $$W_{ij} = \sum_{T \in \mathcal{T}} \mathbb{I}(i \in T \text{ và } j \in T)$$
 $$X = [x_{ij}]_{N \times K}, \quad \text{với } \sum_{j=1}^K x_{ij} = 1, \; \forall i \in \{1, \dots, N\}$$
 
 
-File [src/create_partition_scheme.py](../src/create_partition_scheme.py) có nhiệm vụ tạo mock data
-Sau đó ta triển khai first partitioning ([src/first_partitioning.py](../src/first_partitioning.py))
 
 
 
@@ -210,3 +280,10 @@ BPG distributed transaction cost (Cut Weight): 1.0
 ```
 
 => Đọc [bpg.md](bpg.md) để hiểu chi tiết thuật toán BPG
+
+
+## Tài liệu liên quan
+
+- [docs/first_partitioning.md](first_partitioning.md): Phân tích chi tiết Algorithm 5 và nguyên nhân gây nghẽn mạng
+- [docs/partition_scheme_bpg.md](partition_scheme_bpg.md): Giải thích ma trận ái lực $W$ và quá trình gom cụm
+- [docs/bpg.md](bpg.md): Công thức toán học và nguyên lý thuật toán BPG
