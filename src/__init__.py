@@ -1,19 +1,17 @@
 from __future__ import annotations
-from core import PartitionScheme
-from workload import CreatePartitionScheme
-from baseline import FirstPartitioning
+from partition_scheme import PartitionScheme, CreatePartitionScheme
+from partitioning import FirstPartitioning, Partitioning, PartitioningUnbalancedGraph, PartitioningMinimumCutGraph
 from bpg import PartitionScheme_BPG, BregmanProximalGradient, BPG_PartitionScheme, bpg_partition
-from dynamic import Partitioning, PartitioningUnbalancedGraph, PartitioningMinimumCutGraph
 
 __all__ = [
     'PartitionScheme',
     'CreatePartitionScheme',
     'FirstPartitioning',
+    'Partitioning',
+    'PartitioningUnbalancedGraph',
+    'PartitioningMinimumCutGraph',
     'PartitionScheme_BPG',
     'BregmanProximalGradient',
     'BPG_PartitionScheme',
     'bpg_partition',
-    'Partitioning',
-    'PartitioningUnbalancedGraph',
-    'PartitioningMinimumCutGraph',
 ]

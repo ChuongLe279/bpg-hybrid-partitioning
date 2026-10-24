@@ -2,7 +2,13 @@ from __future__ import annotations
 import random
 from faker import Faker
 import networkx as nx
-from core import PartitionScheme
+
+
+"""Class cốt lõi"""
+class PartitionScheme():
+    def __init__(self, heat_graph: nx.Graph, partitions: dict[int, set[int]]):
+        self.heat_graph = heat_graph
+        self.partitions = partitions
 
 
 class CreatePartitionScheme():

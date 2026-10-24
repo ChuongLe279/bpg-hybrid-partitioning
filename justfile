@@ -1,2 +1,2 @@
-test:
-    @python src/test.py
+run:
+    @python src/main.py
