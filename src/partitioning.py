@@ -83,7 +83,7 @@ class FirstPartitioning(): # Algorithm 5
                     best_score = score
                     best_p = p
             partitions[best_p].add(node)
-            partition_loads[best_p] += node_w 
+            partition_loads[best_p] += node_w
             visited.add(node)
 
         # UncoarseningGraph: Bung các đỉnh gom cụm về lại các đỉnh ban đầu trong đồ thị nhiệt
@@ -175,7 +175,7 @@ class PartitioningUnbalancedGraph(): # Algorithm 3
 
         """
         TODO: Áp dụng hai bước dưới đây sẽ tối ưu thuật toán hơn. Nhưng vì
-        bài báo không nhắc đến phương pháp cụ thể, áp dụng vào thì sẽ gây ra phức tạp không 
+        bài báo không nhắc đến phương pháp cụ thể, áp dụng vào thì sẽ gây ra phức tạp không
         cần thiết. **Nchung là t ko biết làm.
         """
         # Di chuyển hàng xóm lân cận đi theo (di chuyển cả nhóm).
@@ -198,7 +198,7 @@ class PartitioningUnbalancedGraph(): # Algorithm 3
         n = ()
         while loads[overloadedPartition] > (1 + self.workload_factor) * avgWorkload:
             """
-            Chọn một vertex phù hợp để di chuyển từ partition có workload cao 
+            Chọn một vertex phù hợp để di chuyển từ partition có workload cao
             nhất sang thấp nhất.
             """
             n = self.mostProeminentTuple(G, overloadedPartition)
@@ -265,7 +265,7 @@ class PartitioningMinimumCutGraph(): # Algorithm 4
     def hottestEdge(self, criticalEdges: list[tuple[int, int, float]]) -> tuple[int, int, float]:
         """Chỉ trả về một cạnh có weight lớn nhất duy nhất."""
         return max(criticalEdges, key=lambda edge: edge[2]) # (u, v, w) -> trả cạnh có w lớn nhất
-    
+
     def migrateTuple(self, partition_scheme: PartitionScheme, vertices: list[int], origin_partition: int, target_partition: int) -> PartitionScheme:
         for vertex in vertices:
             partition_scheme.partitions[origin_partition].remove(vertex)
@@ -364,7 +364,7 @@ class PartitioningMinimumCutGraph(): # Algorithm 4
                     Tính min
                 two_hop = set()
                     Tính min
-            
+
             Code sẽ lặp lại 1 chút cho dễ debug chứ giờ nhiều hàm quá r.
         """
 
@@ -496,7 +496,7 @@ class PartitioningMinimumCutGraph(): # Algorithm 4
             current_cut = self.calculateMinimumCut(G)
             if chargeTestTarget >= 0 and (chargeTestOrigin < 0 or chargeTestOrigin > chargeTestTarget):
                 if chargeTestTarget < current_cut:
-                    G = self.migrateTuple(G, target_vertices, target_partition, origin_partition)   
+                    G = self.migrateTuple(G, target_vertices, target_partition, origin_partition)
             elif chargeTestOrigin >= 0:
                 if chargeTestOrigin < current_cut:
                     G = self.migrateTuple(G, origin_vertices, origin_partition, target_partition)
@@ -506,11 +506,12 @@ class PartitioningMinimumCutGraph(): # Algorithm 4
 
 
 class Partitioning(): # Algorithm 2
-    def __init__(self, partition_scheme: PartitionScheme, site_num: int, workload_factor: float, distributed_percentage: float = 0.02):
+    def __init__(self, partition_scheme: PartitionScheme, site_num: int, workload_factor: float, distributed_percentage: float = 0.02, use_bpg: bool = False):
         self.partition_scheme = partition_scheme
         self.site_num = site_num
         self.workload_factor = workload_factor
         self.distributed_percentage = distributed_percentage
+        self.use_bpg = use_bpg
 
     def getLoads(self, partition_scheme: PartitionScheme):
         loads = [
@@ -551,9 +552,13 @@ class Partitioning(): # Algorithm 2
             G = PartitioningMinimumCutGraph(G, self.workload_factor).run() # algorithm 4
 
         if len(G.partitions) == 1:
-            G = FirstPartitioning(G, self.site_num).run()
+            if self.use_bpg:
+                from bpg import bpg_partition
+                G = bpg_partition(G, site_num=self.site_num)
+            else:
+                G = FirstPartitioning(G, self.site_num).run()
 
         if G.partitions != self.partition_scheme.partitions or len(G.partitions) != self.site_num:
-            G = Partitioning(G, self.site_num, self.workload_factor, self.distributed_percentage).run(recursion_depth=recursion_depth - 1)
+            G = Partitioning(G, self.site_num, self.workload_factor, self.distributed_percentage, self.use_bpg).run(recursion_depth=recursion_depth - 1)
 
         return G

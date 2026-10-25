@@ -78,6 +78,7 @@ class BregmanProximalGradient(): # BPG
         self.partitions_num = partitions_num
         self.step_size = step_size
         self.iterations_num = iterations_num
+        self.X: np.ndarray | None = None
     
     def run(self) -> np.ndarray:
         rng = np.random.default_rng()
@@ -108,6 +109,7 @@ class BregmanProximalGradient(): # BPG
             Y = np.exp(log_Y)
             X = Y / Y.sum(axis=1, keepdims=True)
 
+        self.X = X
         return np.argmax(X, axis=1) + 1
 
 
