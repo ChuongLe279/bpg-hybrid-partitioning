@@ -73,17 +73,14 @@ class PartitionScheme_BPG():
 
 
 class BregmanProximalGradient(): # BPG
-    def __init__(self, W: csr_array, partitions_num: int, step_size: float = 1.0, iterations_num: int = 50, seed: int = 42):
+    def __init__(self, W: csr_array, partitions_num: int, step_size: float, iterations_num: int):
         self.W = W
         self.partitions_num = partitions_num
         self.step_size = step_size
         self.iterations_num = iterations_num
-        self.seed = seed
-        self.X: np.ndarray | None = None
-        self.labels: np.ndarray | None = None
-
+    
     def run(self) -> np.ndarray:
-        rng = np.random.default_rng(self.seed)
+        rng = np.random.default_rng()
         N = self.W.shape[0] # type: ignore
         K = self.partitions_num
         X = (1 / K) * np.ones((N, K)) + 0.1 * rng.random((N,K))
@@ -99,25 +96,19 @@ class BregmanProximalGradient(): # BPG
                 A = (X[:, i] @ (self.W @ np.ones(N))) * (self.W @ np.ones(N) - 2 * (self.W @ X[:, i]))
                 B = (X[:, i] @ (self.W @ (np.ones(N) - X[:, i]))) * (self.W @ np.ones(N))
                 C = (X[:, i] @ (self.W @ np.ones(N))) ** 2
-                """
-                Chưa xét trường hợp C bằng 0 nữa.
-                Có thể cộng một số siêu nhỏ như 1e-10.
-                Nhưng mà sợ sai công thức đạo hàm.
-                """
-                g = (A - B) / C
+                C = max(C, 1e-12) # Tránh việc C = 0
 
+                g = (A - B) / C
                 G[:, i] = g
 
-            """
-            Sợ hàm mũ cao quá gây ra inf.
-            Nhưng t ko biết chỉnh công thức gốc như nào.
-            """
-            Y = X * np.exp(-self.step_size * G)
-            X = Y / Y.sum(axis = 1, keepdims = True)
 
-        self.X = X
-        self.labels = np.argmax(X, axis=1)
-        return self.labels
+            log_Y = np.log(np.maximum(X, 1e-12)) - self.step_size * G
+            log_Y -= log_Y.max(axis=1, keepdims=True)
+
+            Y = np.exp(log_Y)
+            X = Y / Y.sum(axis=1, keepdims=True)
+
+        return np.argmax(X, axis=1) + 1
 
 
 class BPG_PartitionScheme():
@@ -144,7 +135,7 @@ class BPG_PartitionScheme():
 def bpg_partition(partition_scheme: PartitionScheme, site_num: int = 2, step_size: float = 1.0, iterations_num: int = 50, seed: int = 42) -> PartitionScheme:
     bpg_prep = PartitionScheme_BPG(partition_scheme, use_coarsening=True)
     W = bpg_prep.run()
-    solver = BregmanProximalGradient(W=W, partitions_num=site_num, step_size=step_size, iterations_num=iterations_num, seed=seed)
+    solver = BregmanProximalGradient(W=W, partitions_num=site_num, step_size=step_size, iterations_num=iterations_num)
     labels = solver.run()
     bpg_mapper = BPG_PartitionScheme(partition_scheme.heat_graph, labels, coarse_to_nodes=bpg_prep.coarse_to_nodes)
     return bpg_mapper.run()

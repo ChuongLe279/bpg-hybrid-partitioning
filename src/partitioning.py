@@ -182,9 +182,11 @@ class PartitioningUnbalancedGraph(): # Algorithm 3
         # Giới hạn độ tìm kiếm = 2 bước nhảy.
         return True
 
-    def run(self) -> PartitionScheme:
-        current_scheme = self.partition_scheme
-        G = copy.deepcopy(current_scheme)
+    def run(self, recursion_depth: int = 20) -> PartitionScheme:
+        G = copy.deepcopy(self.partition_scheme)
+
+        if recursion_depth == 0 or not G.partitions:
+            return G
 
         loads = self.getLoads(G)
         # Partition có tổng workload thấp nhất
@@ -218,10 +220,9 @@ class PartitioningUnbalancedGraph(): # Algorithm 3
         overloadedPartition = max(loads, key=loads.__getitem__)
 
         if (loads[overloadedPartition] > (1 + self.workload_factor) * avgWorkload or loads[underloadedPartition] < (1-self.workload_factor) * avgWorkload):
-            G = PartitioningUnbalancedGraph(G, self.site_num, self.workload_factor).run()
+            G = PartitioningUnbalancedGraph(G, self.site_num, self.workload_factor).run(recursion_depth=recursion_depth-1)
 
         return G
-
 
 class PartitioningMinimumCutGraph(): # Algorithm 4
     """
@@ -314,7 +315,35 @@ class PartitioningMinimumCutGraph(): # Algorithm 4
 
         return total_weight
 
-    def explorePossibility(self, partition_scheme: PartitionScheme, vertex: int, origin_partition: int, target_partition: int) -> float:
+    def updateMinCut(self, partition_scheme: PartitionScheme, vertex_groups, origin_partition: int, target_partition: int):
+        """
+        Trả về:
+            minimal_cut -> float: tổng trọng số các cạnh nối giữa những partition khác nhau, nhỏ nhất.
+            best_vertices -> list[int]: danh sách các đỉnh có cut nhỏ nhất.
+        """
+        minimal_cut = float("inf")
+        best_vertices = []
+        source_vertices = partition_scheme.partitions[origin_partition]
+        for vertices in vertex_groups:
+            vertices = list(vertices)
+            if not set(vertices).issubset(source_vertices):
+                continue
+            trial_scheme = copy.deepcopy(partition_scheme)
+            trial_scheme = self.migrateTuple(trial_scheme, vertices, origin_partition, target_partition)
+
+            # Kiểm tra cân bằng tải của trial_scheme
+            if not self.checkBalance(trial_scheme):
+                continue
+
+            # Nếu hợp lệ, tính tổng trọng số cạnh cắt rồi so sánh với kết quả tốt nhất
+            cut = self.calculateMinimumCut(trial_scheme)
+            if cut < minimal_cut:
+                minimal_cut = cut
+                best_vertices = vertices
+
+        return minimal_cut, best_vertices
+
+    def explorePossibility(self, partition_scheme: PartitionScheme, vertex: int, origin_partition: int, target_partition: int):
         """
         Đầu vào:
             vertex: ID đỉnh cần chuyển.
@@ -340,34 +369,29 @@ class PartitioningMinimumCutGraph(): # Algorithm 4
         """
 
         minimal_cut = float('inf') # Cạnh nhỏ nhất sau khi di chuyển vertex.
+        best_vertices = []
         heat_graph = partition_scheme.heat_graph
         source_vertices = partition_scheme.partitions[origin_partition]
         # Kiểm tra xem các đỉnh đều thuộc original partition hay không.
         if vertex not in source_vertices or origin_partition == target_partition:
-            return -1
+            return -1, []
         """
-        Tính min cho 1 hop
+        Tính min cho 1 đỉnh.
+        """
+        minimal_cut, best_vertices = self.updateMinCut(partition_scheme, [[vertex]], origin_partition, target_partition)
+
+        """
+        Tính min cho 1 hop - 2 đỉnh.
         """
         # Các đỉnh cách vertex đúng 1 cạnh
         one_hop = set(heat_graph.neighbors(vertex)) - {vertex}
-        for neighbor in one_hop:
-            vertices = [vertex, neighbor]
-            if not set(vertices).issubset(source_vertices):
-                continue
-            trial_scheme = copy.deepcopy(partition_scheme)
-            trial_scheme = self.migrateTuple(trial_scheme, vertices, origin_partition, target_partition)
-
-            # Kiểm tra cân bằng tải của trial_scheme
-            if not self.checkBalance(trial_scheme):
-                continue
-
-            # Nếu hợp lệ, tính tổng trọng số cạnh cắt rồi so sánh với kết quả tốt nhất
-            cut = self.calculateMinimumCut(trial_scheme)
-            minimal_cut = min(cut, minimal_cut)
-
-            trial_scheme = copy.deepcopy(partition_scheme)
+        one_hop_groups = [[vertex, neighbor] for neighbor in one_hop]
+        cut, vertices = self.updateMinCut(partition_scheme, one_hop_groups, origin_partition, target_partition)
+        if cut < minimal_cut:
+            minimal_cut = cut
+            best_vertices = vertices
         """
-        Tính min cho 2 hop
+        Tính min cho 2 hop - 3 đỉnh.
         """
         # Các đỉnh cách vertex đúng 2 cạnh
         two_hops = set()
@@ -375,28 +399,16 @@ class PartitioningMinimumCutGraph(): # Algorithm 4
             for next_neighbor in heat_graph.neighbors(neighbor):
                 if next_neighbor != vertex and next_neighbor not in one_hop:
                     two_hops.add((vertex, neighbor, next_neighbor))
-
-        trial_scheme = copy.deepcopy(partition_scheme)
         # Chuyển các đỉnh trong phương án sang target_partition
-        for partition_group in two_hops:
-            vertices = list(partition_group) # List chứa đỉnh ID.
-            if not set(vertices).issubset(source_vertices):
-                continue
-            trial_scheme = copy.deepcopy(partition_scheme)
-            trial_scheme = self.migrateTuple(trial_scheme, vertices, origin_partition, target_partition)
-
-            # Kiểm tra cân bằng tải của trial_scheme
-            if not self.checkBalance(trial_scheme):
-                continue
-
-            # Nếu hợp lệ, tính tổng trọng số cạnh cắt rồi so sánh với kết quả tốt nhất
-            cut = self.calculateMinimumCut(trial_scheme)
-            minimal_cut = min(cut, minimal_cut)
-
+        cut, vertices = self.updateMinCut(partition_scheme, two_hops, origin_partition, target_partition)
+        if cut < minimal_cut:
+            minimal_cut = cut
+            best_vertices = vertices
         # Nếu ko có trường hợp nào hợp lệ thì trả về -1
-        return -1 if minimal_cut == float("inf") else minimal_cut
+        if minimal_cut == float("inf"):
+            return -1, []
+        return minimal_cut, best_vertices
 
-    
     def checkMinPartition(self, original_scheme: PartitionScheme, new_scheme: PartitionScheme) -> bool:
         """Kiểm tra phương án mới có giảm tổng trọng số cạnh cắt không. (đây là equation 2)"""
         original_cut = self.calculateMinimumCut(original_scheme)
@@ -457,7 +469,7 @@ class PartitioningMinimumCutGraph(): # Algorithm 4
         # Xếp trọng số từ nhỏ đến lớn.
         G = copy.deepcopy(self.partition_scheme)
         criticalEdges = sorted(
-            self.criticalEdges(self.partition_scheme),
+            self.criticalEdges(G),
             key=lambda edge: edge[2],
             reverse=True
         )
@@ -465,39 +477,40 @@ class PartitioningMinimumCutGraph(): # Algorithm 4
             u, v, weight = ce
 
             origin_partition = next(
-                pid for pid, vertices in self.partition_scheme.partitions.items()
+                pid for pid, vertices in G.partitions.items()
                 if u in vertices
             )
             target_partition = next(
-                pid for pid, vertices in self.partition_scheme.partitions.items()
+                pid for pid, vertices in G.partitions.items()
                 if v in vertices
             )
 
-            chargeTestOrigin = self.explorePossibility(self.partition_scheme, u, origin_partition, target_partition)
-            chargeTestTarget =  self.explorePossibility(self.partition_scheme, v, target_partition, origin_partition)
+            chargeTestOrigin, origin_vertices  = self.explorePossibility(G, u, origin_partition, target_partition)
+            chargeTestTarget, target_vertices =  self.explorePossibility(G, v, target_partition, origin_partition)
 
             if chargeTestOrigin < 0 and chargeTestTarget < 0:
-                G = self.explorePossibilititesReplication(self.partition_scheme, u, v, origin_partition, target_partition)
+                G = self.explorePossibilititesReplication(G, u, v, origin_partition, target_partition)
                 continue
 
-            if chargeTestOrigin > chargeTestTarget and chargeTestTarget >= 0:
-                G = self.migrateTuple(self.partition_scheme, [v], target_partition, origin_partition)   
-            else:
-                if chargeTestOrigin >= 0:
-                    G = self.migrateTuple(self.partition_scheme, [u], origin_partition, target_partition)
-                else:
-                    G = self.partition_scheme
+            # Phải tính current cut để xem có tối ưu trước khi di chuyển không?
+            current_cut = self.calculateMinimumCut(G)
+            if chargeTestTarget >= 0 and (chargeTestOrigin < 0 or chargeTestOrigin > chargeTestTarget):
+                if chargeTestTarget < current_cut:
+                    G = self.migrateTuple(G, target_vertices, target_partition, origin_partition)   
+            elif chargeTestOrigin >= 0:
+                if chargeTestOrigin < current_cut:
+                    G = self.migrateTuple(G, origin_vertices, origin_partition, target_partition)
 
         return G # type: ignore
 
 
+
 class Partitioning(): # Algorithm 2
-    def __init__(self, partition_scheme: PartitionScheme, site_num: int, workload_factor: float, distributed_percentage: float = 0.02, use_bpg: bool = True):
+    def __init__(self, partition_scheme: PartitionScheme, site_num: int, workload_factor: float, distributed_percentage: float = 0.02):
         self.partition_scheme = partition_scheme
         self.site_num = site_num
         self.workload_factor = workload_factor
         self.distributed_percentage = distributed_percentage
-        self.use_bpg = use_bpg
 
     def getLoads(self, partition_scheme: PartitionScheme):
         loads = [
@@ -513,9 +526,12 @@ class Partitioning(): # Algorithm 2
         )
         return calculator.calculateMinimumCut(partition_scheme)
 
-    def run(self) -> PartitionScheme:
+    def run(self, recursion_depth: int  = 20) -> PartitionScheme:
         current_scheme = self.partition_scheme
         G = copy.deepcopy(current_scheme)
+
+        if recursion_depth == 0:
+            return G
 
         loads = self.getLoads(G)
         minPartition = min(loads)
@@ -529,17 +545,15 @@ class Partitioning(): # Algorithm 2
         Tổng trọng số weight của tất cả các cạnh nối giữa 2
         partition khác nhau trong Heat Graph.
         """
+        loads = self.getLoads(G)
         criticalEdgesLoad = self.getCriticalEdgesLoad(G)
         if criticalEdgesLoad > self.distributed_percentage * sum(loads):
             G = PartitioningMinimumCutGraph(G, self.workload_factor).run() # algorithm 4
 
         if len(G.partitions) == 1:
-            if self.use_bpg:
-                G = bpg_partition(G, site_num=self.site_num)
-            else:
-                G = FirstPartitioning(G, self.site_num).run()
+            G = FirstPartitioning(G, self.site_num).run()
 
         if G.partitions != self.partition_scheme.partitions or len(G.partitions) != self.site_num:
-            G = Partitioning(G, self.site_num, self.workload_factor, self.distributed_percentage, self.use_bpg).run()
+            G = Partitioning(G, self.site_num, self.workload_factor, self.distributed_percentage).run(recursion_depth=recursion_depth - 1)
 
         return G
