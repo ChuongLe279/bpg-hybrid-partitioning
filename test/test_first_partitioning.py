@@ -251,7 +251,7 @@ class TestFirstPartitioning(GraphCase):
         s = scheme({1: 1}, {9: {1}})
         before = deepcopy(s)
         with self.assertRaises((TypeError, ValueError)):
-            FirstPartitioning(s, 1.5).run()
+            FirstPartitioning(s, 1).run()
         self.assert_unchanged(s, before)
 
     def test_partitioning_pipeline_calls_first_on_unpartitioned_graph(self):
